@@ -18,7 +18,7 @@ Keiko ToriiさんのTweet https://twitter.com/KeikoUTorii/status/116132209216533
 ## 実行方法
 引数なしで、go run multiply_persist.go とやれば、
 
-   試行情報 ... 桁数:最大乗算数:試行回数
+   試行情報 ... 桁数:最大乗算数:試行回数<br>
    最大回数 ... Found(最大乗算数): 数字列
 
 の２つの情報が出力されます（前者は、一つの桁が終わるごとに１つの出力が出ます）
