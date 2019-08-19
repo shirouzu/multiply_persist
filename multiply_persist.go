@@ -17,13 +17,16 @@ import (
 	"sync"
 	"math/big"
 	"runtime"
+	"os"
+	"log"
+	"io"
 )
 
 // 出力
 //  試行情報 ... 桁数:最大乗算数:試行回数
 //  最大回数 ... Found(最大乗算数): 数字列
 
-var NMAX int = 0      // 本当は排他制御必要
+var NMAX int = 3      // 本当は排他制御必要
 var NUMS [][]int      // 試行する素数グループ
 var EDIC [][]*big.Int // 1-9累乗辞書（EDIC[2][4] = 2^4）
 var SUMMARY_ONLY bool // trueで試行出力のみに
@@ -34,29 +37,39 @@ type ANS struct {
 }
 
 func main() {
-	start_tick := time.Now()
-
 	thr_num := runtime.NumCPU()-1 // スレッド数（マルチスレッド時、序盤は出力順が乱れます）
-	col_start := 1        // 開始桁数
-	col_max := 500        // 最大桁数
+	col_start := 1       // 開始桁数
+	col_max := 100       // 最大桁数
 	SUMMARY_ONLY = false
 
 	if thr_num == 0 {
 		thr_num = 1
 	}
-	fmt.Printf("Start (%d threads)\n", thr_num)
 
 	NUMS = [][]int{{7,3,2}, {7,5,3}} // 2 と 5 の組み合わせは次で必ず消えるため除外
 
 	setup_edic(col_max) // 1-9について、最大桁数の累乗辞書を作る
-	wg := new(sync.WaitGroup)
 
+	// メイン処理
+	logf, err := os.OpenFile("multiply_persist.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	if err != nil {
+		panic("open log error")
+	}
+	defer logf.Close()
+	log.SetOutput(io.MultiWriter(logf, os.Stdout))
+
+	log.Printf("Start (%d threads)\n", thr_num)
+//	log.SetFlags(0)
+
+	start_tick := time.Now()
+
+	wg := new(sync.WaitGroup)
 	for i:=0; i < thr_num; i++ {
 		wg.Add(1)
 		go thread_proc(i, col_start, col_max, thr_num, wg)
 	}
 	wg.Wait()
-	fmt.Printf("\nfin (%.1f sec)", float64(time.Now().Sub(start_tick))/1000000000)
+	log.Printf("fin (%.1f sec)", float64(time.Now().Sub(start_tick))/1000000000)
 }
 
 // 1-9の累乗辞書作成
@@ -80,7 +93,7 @@ func thread_proc(idx int, start int, col_max int, thr_num int, wg *sync.WaitGrou
 	for cols:=start+idx; cols < col_max; cols+=thr_num {
 		ans := ANS{}
 		r, cnt := combi(cols, 1, &ans)
-		fmt.Printf("%4d:%2d:%-8d", cols, r, cnt)
+		log.Printf("Searched: cols=%-4d max=%-2d num=%-8d ", cols, r, cnt)
 	}
 	wg.Done()
 }
@@ -190,12 +203,12 @@ func mul_eva(dep int, sum *big.Int, ans *ANS) int {
 
 // （主に）解答出力
 func put_data(tag string, dep int, ans *ANS) {
-	s := fmt.Sprintf("\n%s(%d): ", tag, dep)
+	s := fmt.Sprintf("%s(%d): ans=", tag, dep)
 	for i, v := range ans.idx {
 		for j:=0; j < v; j++ {
 			s += fmt.Sprintf("%d", NUMS[ans.kind][i])
 		}
 	}
-	fmt.Printf("%s\n", s)
+	log.Printf("%s\n", s)
 }
 
